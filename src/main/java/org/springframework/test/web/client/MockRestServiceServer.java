@@ -24,6 +24,7 @@ import java.util.List;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.client.ClientHttpRequest;
 import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.springframework.test.web.client.match.RequestMatchers;
 import org.springframework.test.web.client.response.ResponseCreators;
 import org.springframework.util.Assert;
@@ -78,11 +79,11 @@ import org.springframework.web.client.support.RestGatewaySupport;
  */
 public class MockRestServiceServer {
 
-	private final List<RequestMatcherClientHttpRequest> expectedRequests =
-			new LinkedList<RequestMatcherClientHttpRequest>();
+	private final List<MockClientHttpRequest> expectedRequests =
+			new LinkedList<MockClientHttpRequest>();
 
-	private final List<RequestMatcherClientHttpRequest> actualRequests =
-			new LinkedList<RequestMatcherClientHttpRequest>();
+    private final List<MockClientHttpRequest> actualRequests =
+			new LinkedList<MockClientHttpRequest>();
 
 
 	/**
@@ -92,6 +93,18 @@ public class MockRestServiceServer {
 	 */
 	private MockRestServiceServer() {
 	}
+
+
+    public static MockRestServiceServer createSmartServer(RestTemplate restTemplate) {
+        Assert.notNull(restTemplate, "'restTemplate' must not be null");
+
+        MockRestServiceServer mockServer = new MockRestServiceServer();
+        SmartClientHttpRequestFactory factory = mockServer.new SmartClientHttpRequestFactory();
+
+        restTemplate.setRequestFactory(factory);
+
+        return mockServer;
+    }
 
 	/**
 	 * Create a {@code MockRestServiceServer} and set up the given
@@ -165,7 +178,7 @@ public class MockRestServiceServer {
 
 		if (this.actualRequests.size() > 0) {
 			sb.append(":\n");
-			for (RequestMatcherClientHttpRequest request : this.actualRequests) {
+			for (MockClientHttpRequest request : this.actualRequests) {
 				sb.append(request.toString()).append("\n");
 			}
 		}
@@ -180,7 +193,7 @@ public class MockRestServiceServer {
 	 */
 	private class RequestMatcherClientHttpRequestFactory implements ClientHttpRequestFactory {
 
-		private Iterator<RequestMatcherClientHttpRequest> requestIterator;
+		private Iterator<MockClientHttpRequest> requestIterator;
 
 		public ClientHttpRequest createRequest(URI uri, HttpMethod httpMethod) throws IOException {
 			Assert.notNull(uri, "'uri' must not be null");
@@ -193,7 +206,7 @@ public class MockRestServiceServer {
 				throw new AssertionError("No further requests expected");
 			}
 
-			RequestMatcherClientHttpRequest request = this.requestIterator.next();
+            MockClientHttpRequest request = this.requestIterator.next();
 			request.setURI(uri);
 			request.setMethod(httpMethod);
 
@@ -203,4 +216,26 @@ public class MockRestServiceServer {
 		}
 	}
 
+    private class SmartClientHttpRequestFactory implements ClientHttpRequestFactory {
+
+        private Iterator<RequestMatcherClientHttpRequest> requestIterator;
+
+        public ClientHttpRequest createRequest(URI uri, HttpMethod httpMethod) throws IOException {
+            Assert.notNull(uri, "'uri' must not be null");
+            Assert.notNull(httpMethod, "'httpMethod' must not be null");
+
+            SmartClientHttpRequest request = new SmartClientHttpRequest(MockRestServiceServer.this);
+            request.setURI(uri);
+            request.setMethod(httpMethod);
+
+            MockRestServiceServer.this.actualRequests.add(request);
+
+            return request;
+        }
+    }
+
+
+    public List<MockClientHttpRequest> getExpectedRequests() {
+        return expectedRequests;
+    }
 }

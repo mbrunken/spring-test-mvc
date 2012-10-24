@@ -66,13 +66,22 @@ class RequestMatcherClientHttpRequest extends MockClientHttpRequest implements R
 					+ "e.g. MockRestServiceServer.expect(requestTo(\"/foo\")).andRespond(withSuccess())");
 		}
 
-		for (RequestMatcher requestMatcher : this.requestMatchers) {
-			requestMatcher.match(this);
-		}
+        matches(this);
 
 		setResponse(this.responseCreator.createResponse(this));
 
 		return super.execute();
 	}
 
+    public void matches(MockClientHttpRequest request) throws IOException{
+
+        for (RequestMatcher requestMatcher : this.requestMatchers) {
+            requestMatcher.match(request);
+        }
+
+    }
+
+    public ResponseCreator getResponseCreator() {
+        return responseCreator;
+    }
 }
